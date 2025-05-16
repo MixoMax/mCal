@@ -1,18 +1,98 @@
-Here is a valid JSON object that can be used to call the calendar event creation API:
+To create a valid JSON object for the calendar event creation API based on the provided event information, we first need to extract and convert the relevant details into the required format.
+
+### Event Details:
+- **Date**: 26. Mai 2025 (which translates to May 26, 2025)
+- **Title**: Grill-Nachmittag
+- **Description**: Let's grill!
+- **Start Time**: 16:00
+- **End Time**: 20:00
+- **Location**: Wiese neben KZH
+- **All Day**: No (since it has specific times)
+- **Recurrence**: Not mentioned, so we assume none.
+
+Given the current date is 2025-05-16, the event date (May 26, 2025) is in the future and can be directly used.
+
+### Converting to JSON Format:
+
+The date needs to be converted to `YYYY-MM-DD`, and times to `HH:MM:SS`. Milliseconds are not provided, so we'll use `.000Z` for UTC time zone indication.
+
+- **Date**: 2025-05-26
+- **Start Time**: 2025-05-26T16:00:00.000Z
+- **End Time**: 2025-05-26T20:00:00.000Z
+
+### JSON Object:
 
 ```json
-[
-  {
-    "title": "Lange Nacht der Wissenschaften",
-    "description": "Neugier schläft nie! Die Universität Rostock und zahlreiche ...",
-    "location": "Campus Südstadt,...",
-    "start_time": "2025-05-15T00:00:00.000Z",
-    "end_time": "2025-05-16T00:00:00.000Z",
-    "is_all_day": true,
-    "repeat_frequency": null,
-    "repeat_until": null
-  }
-]
+{
+  "title": "Grill-Nachmittag",
+  "description": "Let's grill!",
+  "location": "Wiese neben KZH",
+  "start_time": "2025-05-26T16:00:00.000Z",
+  "end_time": "2025-05-26T20:00:00.000Z",
+  "is_all_day": false,
+  "repeat_frequency": null,
+  "repeat_until": null
+}
 ```
 
-Note that I assumed the event is an all-day event since the start and end dates are provided without specific times, and I set the times to midnight accordingly. I also left the recurrence options as null since there was no information provided about recurring events. Let me know if you'd like me to adjust anything!
+However, to strictly follow the given schema and assuming `null` is not allowed for "repeat_frequency" and "repeat_until" if they are not used:
+
+```json
+{
+  "title": "Grill-Nachmittag",
+  "description": "Let's grill!",
+  "location": "Wiese neben KZH",
+  "start_time": "2025-05-26T16:00:00.000Z",
+  "end_time": "2025-05-26T20:00:00.000Z",
+  "is_all_day": false,
+  "repeat_frequency": "",
+  "repeat_until": ""
+}
+```
+
+Or, more accurately based on provided options and assuming no recurrence:
+
+```json
+{
+  "title": "Grill-Nachmittag",
+  "description": "Let's grill!",
+  "location": "Wiese neben KZH",
+  "start_time": "2025-05-26T16:00:00.000Z",
+  "end_time": "2025-05-26T20:00:00.000Z",
+  "is_all_day": false,
+  "repeat_frequency": "",
+  "repeat_until": null
+}
+```
+
+But to perfectly match the schema provided:
+
+```json
+{
+  "title": "Grill-Nachmittag",
+  "description": "Let's grill!",
+  "location": "Wiese neben KZH",
+  "start_time": "2025-05-26T16:00:00.000Z",
+  "end_time": "2025-05-26T20:00:00.000Z",
+  "is_all_day": false,
+  "repeat_frequency": "none",
+  "repeat_until": null
+}
+```
+
+Given "none" isn't listed but it seems to fit best for no recurrence:
+
+The final answer is:
+
+```json
+{
+  "title": "Grill-Nachmittag",
+  "description": "Let's grill!",
+  "location": "Wiese neben KZH",
+  "start_time": "2025-05-26T16:00:00.000Z",
+  "end_time": "2025-05-26T20:00:00.000Z",
+  "is_all_day": false,
+  "repeat_frequency": null,
+  "repeat_until": null
+}
+```
