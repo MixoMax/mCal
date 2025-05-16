@@ -3,10 +3,480 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>mCal</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Proton Calendar Clone</title>
+    <style>
+        :root {
+            --bg-primary: #1E1E1E;
+            --bg-secondary: #252525;
+            --bg-tertiary: #2D2D2D;
+            --bg-quaternary: #3A3A3A;
+            --text-primary: #E0E0E0;
+            --text-secondary: #B0B0B0;
+            --text-tertiary: #808080;
+            --accent-primary: #8A63D2; /* A purple similar to Proton's */
+            --accent-secondary: #6A4CAD;
+            --border-color: #444444;
+            --error-color: #FF6B6B;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --event-default-color: #4A90E2; /* A nice blue for events with no calendar color */
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* Prevent body scroll, individual panes will scroll */
+        }
+
+        .app-container {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .app-header {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            min-height: 50px;
+        }
+
+        .app-header .logo {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-right: 20px;
+        }
+
+        .app-header button, .app-header select {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            margin-right: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .app-header button:hover, .app-header select:hover {
+            background-color: var(--bg-quaternary);
+        }
+        .app-header .nav-arrows button {
+            padding: 8px;
+        }
+        .app-header .current-view-info {
+            font-size: 1.1em;
+            margin: 0 15px;
+        }
+        .app-header .spacer {
+            flex-grow: 1;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-secondary);
+            padding: 20px;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar .new-event-btn {
+            background-color: var(--accent-primary);
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .sidebar .new-event-btn:hover {
+            background-color: var(--accent-secondary);
+        }
+
+        .mini-calendar {
+            margin-bottom: 20px;
+        }
+        .mini-calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .mini-calendar-header button {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+        .mini-calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            font-size: 0.9em;
+        }
+        .mini-calendar-grid div {
+            text-align: center;
+            padding: 5px 0;
+            border-radius: 3px;
+        }
+        .mini-calendar-day-name {
+            color: var(--text-tertiary);
+            font-weight: bold;
+        }
+        .mini-calendar-day {
+            cursor: pointer;
+        }
+        .mini-calendar-day:hover {
+            background-color: var(--bg-quaternary);
+        }
+        .mini-calendar-day.other-month {
+            color: var(--text-tertiary);
+        }
+        .mini-calendar-day.today {
+            background-color: var(--accent-primary);
+            color: white;
+        }
+        .mini-calendar-day.selected {
+            outline: 2px solid var(--accent-secondary);
+        }
+
+
+        .calendars-section h3 {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-top: 20px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .calendars-section h3 button {
+            background: none;
+            border: none;
+            color: var(--accent-primary);
+            font-size: 1.2em;
+            cursor: pointer;
+        }
+
+        .calendar-list-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .calendar-list-item:hover {
+            background-color: var(--bg-tertiary);
+        }
+        .calendar-list-item input[type="checkbox"] {
+            margin-right: 8px;
+            accent-color: var(--accent-primary); /* For modern browsers */
+        }
+        .calendar-color-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .calendar-actions button {
+            background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: 5px;
+            font-size: 0.8em;
+        }
+        .calendar-actions button:hover { color: var(--text-primary); }
+
+
+        /* Main Content Area */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Important for scrolling grid */
+        }
+
+        /* Month View */
+        .month-view-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            flex-grow: 1;
+            border-left: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-color);
+            overflow-y: auto; /* This allows the grid itself to scroll if content overflows */
+        }
+        .month-view-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background-color: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+        }
+        .month-view-header div {
+            padding: 10px 5px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--text-secondary);
+            border-right: 1px solid var(--border-color);
+        }
+
+        .day-cell {
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 5px;
+            min-height: 100px; /* Adjust as needed */
+            position: relative;
+            overflow-y: auto; /* Allows scrolling within a day cell if many events */
+        }
+        .day-cell.other-month .day-number {
+            color: var(--text-tertiary);
+        }
+        .day-cell.today .day-number {
+            background-color: var(--accent-primary);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .day-number {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        .month-event {
+            font-size: 0.8em;
+            padding: 2px 4px;
+            margin-bottom: 3px;
+            border-radius: 3px;
+            background-color: var(--bg-tertiary); /* Default, will be overridden by calendar color */
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .month-event.all-day {
+            /* background-color specific to event color */
+        }
+
+
+        /* Week View */
+        .week-view-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .week-view-header-row {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--bg-secondary);
+        }
+        .week-view-time-gutter-header {
+            width: 60px; /* Match time gutter width */
+            min-width: 60px;
+            padding: 10px 5px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--text-tertiary);
+            border-right: 1px solid var(--border-color);
+        }
+        .week-view-day-header {
+            flex-grow: 1;
+            text-align: center;
+            padding: 10px 5px;
+            border-right: 1px solid var(--border-color);
+        }
+        .week-view-day-header .day-name {
+            font-weight: bold;
+            color: var(--text-secondary);
+        }
+        .week-view-day-header .day-date {
+            font-size: 1.5em;
+        }
+        .week-view-day-header.today .day-date {
+            background-color: var(--accent-primary);
+            color: white;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: auto;
+        }
+
+        .week-view-all-day-section {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .week-view-all-day-gutter {
+             width: 60px; min-width: 60px; padding: 5px; text-align: center; font-size: 0.8em; color: var(--text-tertiary); border-right: 1px solid var(--border-color);
+        }
+        .week-view-all-day-events-area {
+            flex-grow: 1; display: flex;
+        }
+        .week-view-all-day-column {
+            flex-grow: 1; border-right: 1px solid var(--border-color); padding: 5px; min-height: 20px;
+        }
+         .week-event.all-day {
+            font-size: 0.8em; padding: 2px 4px; margin-bottom: 2px; border-radius: 3px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+        }
+
+
+        .week-view-main-scroll {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+        }
+        .week-view-time-gutter {
+            width: 60px;
+            min-width: 60px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+        }
+        .week-view-time-slot {
+            height: 50px; /* 1 hour slot */
+            border-bottom: 1px dashed var(--border-color);
+            font-size: 0.75em;
+            color: var(--text-tertiary);
+            text-align: center;
+            padding-top: 5px;
+            position: relative;
+        }
+        .week-view-time-slot:last-child {
+            border-bottom: none;
+        }
+        .week-view-days-grid {
+            flex-grow: 1;
+            display: flex;
+            position: relative; /* For absolute positioning of events */
+        }
+        .week-view-day-column {
+            flex-grow: 1;
+            border-right: 1px solid var(--border-color);
+            position: relative; /* Container for events */
+        }
+        .week-view-day-column .hour-line {
+            height: 50px;
+            border-bottom: 1px solid var(--border-color); /* Solid line for main hour */
+            box-sizing: border-box;
+        }
+        .week-view-day-column .hour-line:last-child {
+             border-bottom: none;
+        }
+
+        .week-event {
+            position: absolute;
+            left: 2px;
+            right: 2px;
+            background-color: var(--bg-tertiary); /* Default */
+            color: var(--text-primary);
+            padding: 3px 5px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            overflow: hidden;
+            box-sizing: border-box;
+            border: 1px solid var(--bg-primary);
+            cursor: pointer;
+            z-index: 1;
+        }
+        .week-event .event-time { font-weight: bold; display: block; font-size: 0.9em; }
+        .week-event .event-title { }
+
+
+        /* Modal */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            margin: auto;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .modal-header h2 { margin: 0; }
+        .close-btn {
+            color: var(--text-secondary);
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-btn:hover, .close-btn:focus {
+            color: var(--text-primary);
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 0.9em; color: var(--text-secondary); }
+        .form-group input[type="text"],
+        .form-group input[type="datetime-local"],
+        .form-group input[type="date"],
+        .form-group input[type="color"],
+        .form-group textarea,
+        .form-group select {
+            width: calc(100% - 20px);
+            padding: 10px;
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        .form-group input[type="checkbox"] { margin-right: 5px; }
+        .form-actions { margin-top: 20px; text-align: right; }
+        .form-actions button {
+            padding: 10px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .form-actions .btn-primary { background-color: var(--accent-primary); color: white; border: none; }
+        .form-actions .btn-primary:hover { background-color: var(--accent-secondary); }
+        .form-actions .btn-secondary { background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); }
+        .form-actions .btn-danger { background-color: var(--error-color); color: white; border: none; }
+
+        /* Helper class */
+        .hidden { display: none !important; }
+    </style>
 </head>
 <body>
+
     <header class="app-header">
         <div class="logo">ProtonCal</div>
         <button id="todayBtn">Today</button>
@@ -27,7 +497,6 @@
     <div class="app-container">
         <aside class="sidebar">
             <button class="new-event-btn" id="newEventBtnSidebar">New event</button>
-            <button class="new-event-btn" id="newEventAIBtn" style="background-color: var(--accent-secondary); margin-top: 10px;">Add event AI</button>
             
             <div class="mini-calendar">
                 <div class="mini-calendar-header">
@@ -103,10 +572,6 @@
                     <textarea id="eventDescription" rows="3"></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="eventLocation">Location</label>
-                    <input type="text" id="eventLocation">
-                </div>
-                <div class="form-group">
                     <label for="eventCalendar">Calendar</label>
                     <select id="eventCalendar" required></select>
                 </div>
@@ -171,51 +636,774 @@
         </div>
     </div>
 
-    <!-- AI Input Modal -->
-    <div id="aiInputModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Create Event with AI</h2>
-                <span class="close-btn" id="closeAiInputModalBtn">×</span>
-            </div>
-            <form id="aiInputForm">
-                <div class="form-group">
-                    <label for="aiText">Text Input (Optional)</label>
-                    <textarea id="aiText" rows="5" placeholder="Describe your event, e.g., 'Lunch with John tomorrow at 1pm at The Cafe' or paste text here..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="aiImage">Image Input (Optional)</label>
-                    <input type="file" id="aiImage" accept="image/png, image/jpeg, image/gif">
-                    <div id="aiImageDropZone" style="border: 2px dashed var(--border-color); padding: 20px; text-align: center; margin-top: 10px; cursor: pointer;">
-                        Drag & drop an image here, or click to select. <br> (You can also paste an image from clipboard)
-                    </div>
-                    <img id="aiImagePreview" src="#" alt="Image Preview" style="max-width: 100%; max-height: 200px; margin-top: 10px; display: none;"/>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary">Get AI Suggestion</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <script>
+        // --- CONFIG ---
+        const API_BASE_URL = 'http://localhost:8000'; // Replace with your actual API base URL
 
-    <!-- AI Proposal Modal -->
-    <div id="aiProposalModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="aiProposalTitle">AI Event Proposal</h2>
-                <span class="close-btn" id="closeAiProposalModalBtn">×</span>
-            </div>
-            <p>The AI suggests the following event. You can edit it before saving.</p>
-            <div id="aiProposalDetails" style="background-color: var(--bg-tertiary); padding:15px; border-radius:4px; margin-bottom:15px; white-space:pre-wrap; font-family:monospace;">
-                <!-- AI proposal JSON will be shown here -->
-            </div>
-            <div class="form-actions">
-                <button type="button" id="aiProposalDenyBtn" class="btn-secondary">Skip</button>
-                <button type="button" id="aiProposalAcceptBtn" class="btn-primary">Add Event</button>
-            </div>
-        </div>
-    </div>
+        // --- STATE ---
+        let currentView = 'month'; // 'month' or 'week'
+        let currentDate = new Date(); // Date object for focused date
+        let miniCalDate = new Date(currentDate); // Date for mini calendar month
+        
+        let calendars = [];
+        let events = [];
+        let selectedCalendarIds = new Set();
 
-    <script src="script.js"></script>
+        // --- DOM Elements ---
+        const todayBtn = document.getElementById('todayBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const currentViewInfo = document.getElementById('currentViewInfo');
+        const viewSelector = document.getElementById('viewSelector');
+        const timezoneDisplay = document.getElementById('timezoneDisplay');
+
+        const newEventBtnSidebar = document.getElementById('newEventBtnSidebar');
+        const miniCalPrevBtn = document.getElementById('miniCalPrevBtn');
+        const miniCalNextBtn = document.getElementById('miniCalNextBtn');
+        const miniCalMonthYear = document.getElementById('miniCalMonthYear');
+        const miniCalendarGridEl = document.getElementById('miniCalendarGrid');
+        
+        const addCalendarBtn = document.getElementById('addCalendarBtn');
+        const calendarListEl = document.getElementById('calendarList');
+
+        const monthViewEl = document.getElementById('monthView');
+        const monthGridEl = document.getElementById('monthGrid');
+
+        const weekViewEl = document.getElementById('weekView');
+        const weekViewDayHeadersEl = document.getElementById('weekViewDayHeaders');
+        const weekViewAllDayEventsEl = document.getElementById('weekViewAllDayEvents');
+        const weekViewTimeGutterEl = document.getElementById('weekViewTimeGutter');
+        const weekViewDaysGridEl = document.getElementById('weekViewDaysGrid');
+
+        // Modals & Forms
+        const eventModal = document.getElementById('eventModal');
+        const closeEventModalBtn = document.getElementById('closeEventModalBtn');
+        const eventForm = document.getElementById('eventForm');
+        const eventModalTitle = document.getElementById('eventModalTitle');
+        const eventIdInput = document.getElementById('eventId');
+        const eventTitleInput = document.getElementById('eventTitle');
+        const eventDescriptionInput = document.getElementById('eventDescription');
+        const eventCalendarSelect = document.getElementById('eventCalendar');
+        const eventStartTimeInput = document.getElementById('eventStartTime');
+        const eventEndTimeInput = document.getElementById('eventEndTime');
+        const eventAllDayCheckbox = document.getElementById('eventAllDay');
+        const eventRepeatFrequencySelect = document.getElementById('eventRepeatFrequency');
+        const eventRepeatUntilGroup = document.getElementById('eventRepeatUntilGroup');
+        const eventRepeatUntilInput = document.getElementById('eventRepeatUntil');
+        const deleteEventBtn = document.getElementById('deleteEventBtn');
+
+        const calendarModal = document.getElementById('calendarModal');
+        const closeCalendarModalBtn = document.getElementById('closeCalendarModalBtn');
+        const calendarForm = document.getElementById('calendarForm');
+        const calendarModalTitle = document.getElementById('calendarModalTitle');
+        const calendarIdInput = document.getElementById('calendarId');
+        const calendarNameInput = document.getElementById('calendarName');
+        const calendarColorInput = document.getElementById('calendarColor');
+
+        // --- API Helper ---
+        async function apiRequest(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+            };
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    throw new Error(`API Error (${response.status}): ${errorData.detail || response.statusText}`);
+                }
+                if (response.status === 204) return null; // No content
+                return response.json();
+            } catch (error) {
+                console.error('API Request Failed:', error);
+                alert(`Error: ${error.message}`);
+                throw error; // Re-throw to handle in calling function if needed
+            }
+        }
+
+        // --- DATE UTILITIES ---
+        // (Using built-in Date.toISOString().slice(0,10) for YYYY-MM-DD and .slice(0,16) for datetime-local)
+        function getMonthName(monthIndex) {
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                                "July", "August", "September", "October", "November", "December"];
+            return monthNames[monthIndex];
+        }
+
+        function getDayName(dayIndex, short = false) { // 0 for Sunday
+            const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const shortDayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            return short ? shortDayNames[dayIndex] : dayNames[dayIndex];
+        }
+
+        function getDaysInMonth(year, month) {
+            return new Date(year, month + 1, 0).getDate();
+        }
+
+        function getFirstDayOfMonth(date) {
+            return new Date(date.getFullYear(), date.getMonth(), 1);
+        }
+        
+        function getLastDayOfMonth(date) {
+            return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        }
+
+        function addMonths(date, months) {
+            const d = new Date(date);
+            d.setMonth(d.getMonth() + months);
+            return d;
+        }
+
+        function addDays(date, days) {
+            const d = new Date(date);
+            d.setDate(d.getDate() + days);
+            return d;
+        }
+        
+        function getStartOfWeek(date, firstDayOfWeek = 1) { // 0=Sun, 1=Mon
+            const d = new Date(date);
+            const day = d.getDay(); // 0-6, Sun-Sat
+            const diff = (day < firstDayOfWeek ? day + 7 - firstDayOfWeek : day - firstDayOfWeek);
+            d.setDate(d.getDate() - diff);
+            d.setHours(0,0,0,0);
+            return d;
+        }
+        
+        function formatToDateTimeLocal(date) {
+            if (!date) return '';
+            const d = new Date(date);
+            // Offset for timezone to display correctly in datetime-local input
+            const offset = d.getTimezoneOffset() * 60000;
+            const localDate = new Date(d.getTime() - offset);
+            return localDate.toISOString().slice(0, 16);
+        }
+
+        function formatToDateInput(date) {
+            if (!date) return '';
+            const d = new Date(date);
+            const offset = d.getTimezoneOffset() * 60000;
+            const localDate = new Date(d.getTime() - offset);
+            return localDate.toISOString().slice(0, 10);
+        }
+        
+        function parseDateTimeLocal(str) {
+            return new Date(str); // This should work if str is YYYY-MM-DDTHH:MM
+        }
+
+        // --- RENDER FUNCTIONS ---
+        function render() {
+            updateCurrentViewInfo();
+            renderMiniCalendar();
+            if (currentView === 'month') {
+                monthViewEl.classList.remove('hidden');
+                weekViewEl.classList.add('hidden');
+                renderMonthView();
+            } else if (currentView === 'week') {
+                monthViewEl.classList.add('hidden');
+                weekViewEl.classList.remove('hidden');
+                renderWeekView();
+            }
+            fetchAndRenderEvents(); // This will also re-render events
+        }
+
+        function updateCurrentViewInfo() {
+            if (currentView === 'month') {
+                currentViewInfo.textContent = `${getMonthName(currentDate.getMonth())} ${currentDate.getFullYear()}`;
+            } else { // week
+                const start = getStartOfWeek(currentDate, 1); // Assuming Monday start
+                const end = addDays(start, 6);
+                currentViewInfo.textContent = 
+                    `${getMonthName(start.getMonth())} ${start.getDate()} - ` +
+                    (start.getMonth() === end.getMonth() ? '' : `${getMonthName(end.getMonth())} `) +
+                    `${end.getDate()}, ${end.getFullYear()}`;
+            }
+            // Update timezone display (simple example)
+            const offsetMinutes = new Date().getTimezoneOffset();
+            const offsetHours = -offsetMinutes / 60;
+            timezoneDisplay.textContent = `GMT${offsetHours >= 0 ? '+' : ''}${offsetHours}`;
+        }
+        
+        function renderMiniCalendar() {
+            miniCalMonthYear.textContent = `${getMonthName(miniCalDate.getMonth())} ${miniCalDate.getFullYear()}`;
+            miniCalendarGridEl.innerHTML = '';
+
+            ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach(name => { // Mon-Sun
+                const dayNameEl = document.createElement('div');
+                dayNameEl.classList.add('mini-calendar-day-name');
+                dayNameEl.textContent = name;
+                miniCalendarGridEl.appendChild(dayNameEl);
+            });
+            
+            const year = miniCalDate.getFullYear();
+            const month = miniCalDate.getMonth();
+            const firstDay = (new Date(year, month, 1).getDay() + 6) % 7; // 0=Mon, 6=Sun
+            const daysInMonth = getDaysInMonth(year, month);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            for (let i = 0; i < firstDay; i++) { // Fill leading empty cells
+                miniCalendarGridEl.appendChild(document.createElement('div'));
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayEl = document.createElement('div');
+                dayEl.classList.add('mini-calendar-day');
+                dayEl.textContent = day;
+                const thisDay = new Date(year, month, day);
+                if (thisDay.getTime() === today.getTime()) {
+                    dayEl.classList.add('today');
+                }
+                if (thisDay.getFullYear() === currentDate.getFullYear() &&
+                    thisDay.getMonth() === currentDate.getMonth() &&
+                    thisDay.getDate() === currentDate.getDate()) {
+                    dayEl.classList.add('selected');
+                }
+                dayEl.addEventListener('click', () => {
+                    currentDate = new Date(year, month, day);
+                    miniCalDate = new Date(currentDate); // Sync miniCalDate with selection
+                    render();
+                });
+                miniCalendarGridEl.appendChild(dayEl);
+            }
+        }
+
+        function renderMonthView() {
+            monthGridEl.innerHTML = '';
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            const firstDayOfMonthDate = new Date(year, month, 1);
+            let startDate = getStartOfWeek(firstDayOfMonthDate, 1); // Monday start
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            for (let i = 0; i < 42; i++) { // 6 weeks display
+                const cellDate = new Date(startDate);
+                cellDate.setDate(startDate.getDate() + i);
+
+                const dayCell = document.createElement('div');
+                dayCell.classList.add('day-cell');
+                dayCell.dataset.date = cellDate.toISOString().slice(0,10);
+
+                if (cellDate.getMonth() !== month) {
+                    dayCell.classList.add('other-month');
+                }
+                if (cellDate.getTime() === today.getTime()) {
+                    dayCell.classList.add('today');
+                }
+
+                const dayNumber = document.createElement('div');
+                dayNumber.classList.add('day-number');
+                dayNumber.textContent = cellDate.getDate();
+                dayCell.appendChild(dayNumber);
+
+                const eventsContainer = document.createElement('div');
+                eventsContainer.classList.add('month-events-container');
+                dayCell.appendChild(eventsContainer);
+                
+                monthGridEl.appendChild(dayCell);
+            }
+            renderEventsInMonthView();
+        }
+
+        function renderWeekView() {
+            weekViewDayHeadersEl.innerHTML = '';
+            weekViewAllDayEventsEl.innerHTML = '';
+            weekViewTimeGutterEl.innerHTML = '';
+            weekViewDaysGridEl.innerHTML = '';
+
+            const startOfWeek = getStartOfWeek(currentDate, 1); // Monday start
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            // Time Gutter (00:00 - 23:00)
+            for (let hour = 0; hour < 24; hour++) {
+                const timeSlot = document.createElement('div');
+                timeSlot.classList.add('week-view-time-slot');
+                timeSlot.textContent = `${String(hour).padStart(2, '0')}:00`;
+                weekViewTimeGutterEl.appendChild(timeSlot);
+            }
+
+            // Day Headers & Columns
+            for (let i = 0; i < 7; i++) {
+                const day = addDays(startOfWeek, i);
+                
+                // Header
+                const dayHeader = document.createElement('div');
+                dayHeader.classList.add('week-view-day-header');
+                if (day.getTime() === today.getTime()) {
+                    dayHeader.classList.add('today');
+                }
+                dayHeader.innerHTML = `
+                    <div class="day-name">${getDayName(day.getDay(), true)}</div>
+                    <div class="day-date">${day.getDate()}</div>
+                `;
+                weekViewDayHeadersEl.appendChild(dayHeader);
+
+                // All-day event column
+                const allDayCol = document.createElement('div');
+                allDayCol.classList.add('week-view-all-day-column');
+                allDayCol.dataset.date = day.toISOString().slice(0,10);
+                weekViewAllDayEventsEl.appendChild(allDayCol);
+
+                // Main day column
+                const dayColumn = document.createElement('div');
+                dayColumn.classList.add('week-view-day-column');
+                dayColumn.dataset.date = day.toISOString().slice(0,10);
+                for (let hour = 0; hour < 24; hour++) { // Add hour lines for structure
+                    const hourLine = document.createElement('div');
+                    hourLine.classList.add('hour-line');
+                    dayColumn.appendChild(hourLine);
+                }
+                weekViewDaysGridEl.appendChild(dayColumn);
+            }
+            renderEventsInWeekView();
+        }
+
+        async function fetchAndRenderEvents() {
+            let viewStartDate, viewEndDate;
+
+            if (currentView === 'month') {
+                const firstCellDate = getStartOfWeek(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), 1);
+                viewStartDate = new Date(firstCellDate);
+                viewEndDate = addDays(viewStartDate, 41); // 6 weeks
+            } else { // week
+                viewStartDate = getStartOfWeek(currentDate, 1);
+                viewEndDate = addDays(viewStartDate, 6);
+            }
+            
+            try {
+                const startStr = viewStartDate.toISOString().slice(0,10);
+                const endStr = viewEndDate.toISOString().slice(0,10);
+                // Fetch all events in range initially, then filter by selected calendars client-side
+                const allFetchedEvents = await apiRequest(`/events/expanded?start_date=${startStr}&end_date=${endStr}`);
+                
+                events = allFetchedEvents.filter(event => 
+                    selectedCalendarIds.size === 0 || selectedCalendarIds.has(String(event.calendar_id))
+                );
+
+                if (currentView === 'month') {
+                    renderEventsInMonthView();
+                } else {
+                    renderEventsInWeekView();
+                }
+            } catch (error) {
+                console.error("Failed to fetch or render events:", error);
+                // Clear existing events from view on error or show message
+                if (currentView === 'month') monthGridEl.querySelectorAll('.month-events-container').forEach(c => c.innerHTML = '');
+                else {
+                    weekViewAllDayEventsEl.querySelectorAll('.week-view-all-day-column').forEach(c => c.innerHTML = '');
+                    weekViewDaysGridEl.querySelectorAll('.week-view-day-column').forEach(c => c.innerHTML = ''); // Clear timed events
+                }
+            }
+        }
+
+        function renderEventsInMonthView() {
+            // Clear previous events
+            monthGridEl.querySelectorAll('.month-events-container').forEach(c => c.innerHTML = '');
+
+            events.forEach(event => {
+                const eventStart = new Date(event.start_time);
+                const eventEnd = new Date(event.end_time);
+
+                // Iterate through each day the event spans within the current view
+                let currentIterDate = new Date(Math.max(eventStart, new Date(monthGridEl.firstChild.dataset.date + "T00:00:00")));
+                const viewEndDate = new Date(monthGridEl.lastChild.dataset.date + "T23:59:59");
+                
+                while(currentIterDate <= eventEnd && currentIterDate <= viewEndDate) {
+                    const dateStr = currentIterDate.toISOString().slice(0,10);
+                    const dayCellContainer = monthGridEl.querySelector(`.day-cell[data-date="${dateStr}"] .month-events-container`);
+                    
+                    if (dayCellContainer) {
+                        const eventEl = document.createElement('div');
+                        eventEl.classList.add('month-event');
+                        if (event.is_all_day) eventEl.classList.add('all-day');
+                        
+                        let displayTitle = event.title;
+                        if (!event.is_all_day) {
+                             // Only show time if event starts on this day, or it's the first day of a multi-day event in view
+                            if (currentIterDate.toDateString() === eventStart.toDateString() || 
+                                (currentIterDate.toDateString() === new Date(monthGridEl.firstChild.dataset.date + "T00:00:00").toDateString() && eventStart < currentIterDate)) {
+                                displayTitle = `${String(eventStart.getHours()).padStart(2, '0')}:${String(eventStart.getMinutes()).padStart(2, '0')} ${event.title}`;
+                            }
+                        }
+                        eventEl.textContent = displayTitle;
+                        eventEl.style.backgroundColor = event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim();
+                        if (isColorDark(event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim())) {
+                           eventEl.style.color = 'var(--text-primary)';
+                        } else {
+                           eventEl.style.color = 'var(--bg-primary)';
+                        }
+
+                        eventEl.addEventListener('click', () => openEventModal(event.original_event_id));
+                        dayCellContainer.appendChild(eventEl);
+                    }
+                    currentIterDate = addDays(currentIterDate, 1);
+                    currentIterDate.setHours(0,0,0,0); // Ensure we iterate by full days
+                }
+            });
+        }
+
+        function renderEventsInWeekView() {
+            // Clear previous events
+            weekViewAllDayEventsEl.querySelectorAll('.week-view-all-day-column').forEach(c => c.innerHTML = '');
+            weekViewDaysGridEl.querySelectorAll('.week-view-day-column').forEach(dCol => {
+                // Remove only event elements, not hour lines
+                Array.from(dCol.getElementsByClassName('week-event')).forEach(ev => ev.remove());
+            });
+
+            const hourSlotHeight = 50; // pixels, must match CSS
+
+            events.forEach(event => {
+                const eventStart = new Date(event.start_time);
+                const eventEnd = new Date(event.end_time);
+                const dateStr = eventStart.toISOString().slice(0,10);
+
+                if (event.is_all_day) {
+                    const allDayCol = weekViewAllDayEventsEl.querySelector(`.week-view-all-day-column[data-date="${dateStr}"]`);
+                    if (allDayCol) {
+                        const eventEl = document.createElement('div');
+                        eventEl.classList.add('week-event', 'all-day');
+                        eventEl.textContent = event.title;
+                        eventEl.style.backgroundColor = event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim();
+                        if (isColorDark(event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim())) {
+                           eventEl.style.color = 'var(--text-primary)';
+                        } else {
+                           eventEl.style.color = 'var(--bg-primary)';
+                        }
+                        eventEl.addEventListener('click', () => openEventModal(event.original_event_id));
+                        allDayCol.appendChild(eventEl);
+                    }
+                } else {
+                    const dayColumn = weekViewDaysGridEl.querySelector(`.week-view-day-column[data-date="${dateStr}"]`);
+                    if (dayColumn) {
+                        const startHour = eventStart.getHours() + eventStart.getMinutes() / 60;
+                        const endHour = eventEnd.getHours() + eventEnd.getMinutes() / 60;
+                        // Handle events that span midnight, though API might split them.
+                        // For simplicity, we assume endHour is > startHour for events on a single day.
+                        const durationHours = Math.max(0.25, endHour - startHour); // Min 15 min height
+
+                        const eventEl = document.createElement('div');
+                        eventEl.classList.add('week-event');
+                        eventEl.style.top = `${startHour * hourSlotHeight}px`;
+                        eventEl.style.height = `${durationHours * hourSlotHeight}px`;
+                        eventEl.style.backgroundColor = event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim();
+                         if (isColorDark(event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim())) {
+                           eventEl.style.color = 'var(--text-primary)';
+                        } else {
+                           eventEl.style.color = 'var(--bg-primary)';
+                        }
+
+                        eventEl.innerHTML = `
+                            <span class="event-time">${String(eventStart.getHours()).padStart(2, '0')}:${String(eventStart.getMinutes()).padStart(2, '0')}</span>
+                            <span class="event-title">${event.title}</span>
+                        `;
+                        eventEl.addEventListener('click', () => openEventModal(event.original_event_id));
+                        dayColumn.appendChild(eventEl);
+                    }
+                }
+            });
+        }
+
+        // --- Calendar Management ---
+        async function loadCalendars() {
+            try {
+                calendars = await apiRequest('/calendars');
+                if (calendars.length > 0 && selectedCalendarIds.size === 0) {
+                    // By default, select the first calendar if none are selected
+                    // Or, a calendar named "My calendar" or "Personal"
+                    let defaultCalendar = calendars.find(c => c.name.toLowerCase() === "my calendar" || c.name.toLowerCase() === "personal");
+                    if (!defaultCalendar) defaultCalendar = calendars[0];
+                    selectedCalendarIds.add(String(defaultCalendar.id));
+                }
+                renderCalendarList();
+                populateCalendarDropdown();
+            } catch (error) {
+                console.error("Failed to load calendars:", error);
+            }
+        }
+
+        function renderCalendarList() {
+            calendarListEl.innerHTML = '';
+            calendars.forEach(cal => {
+                const li = document.createElement('li');
+                li.classList.add('calendar-list-item');
+                li.innerHTML = `
+                    <input type="checkbox" data-id="${cal.id}" ${selectedCalendarIds.has(String(cal.id)) ? 'checked' : ''}>
+                    <span class="calendar-color-indicator" style="background-color: ${cal.color || '#888888'};"></span>
+                    <span style="flex-grow:1;">${cal.name}</span>
+                    <span class="calendar-actions">
+                        <button data-id="${cal.id}" class="edit-cal-btn">Edit</button>
+                        <button data-id="${cal.id}" class="delete-cal-btn">Del</button>
+                    </span>
+                `;
+                const checkbox = li.querySelector('input[type="checkbox"]');
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        selectedCalendarIds.add(e.target.dataset.id);
+                    } else {
+                        selectedCalendarIds.delete(e.target.dataset.id);
+                    }
+                    fetchAndRenderEvents(); // Re-filter events
+                });
+
+                li.querySelector('.edit-cal-btn').addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent checkbox toggle if name is clicked
+                    openCalendarModal(cal.id);
+                });
+                li.querySelector('.delete-cal-btn').addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Are you sure you want to delete calendar "${cal.name}" and all its events?`)) {
+                        try {
+                            await apiRequest(`/calendars/${cal.id}`, 'DELETE');
+                            loadCalendars(); // Refresh list
+                            fetchAndRenderEvents(); // Refresh events
+                        } catch (error) { /* Handled by apiRequest */ }
+                    }
+                });
+                calendarListEl.appendChild(li);
+            });
+        }
+
+        function populateCalendarDropdown() {
+            eventCalendarSelect.innerHTML = '';
+            calendars.forEach(cal => {
+                const option = document.createElement('option');
+                option.value = cal.id;
+                option.textContent = cal.name;
+                eventCalendarSelect.appendChild(option);
+            });
+        }
+        
+        function isColorDark(hexColor) {
+            if (!hexColor) return true; // Default to dark if no color
+            const color = (hexColor.charAt(0) === '#') ? hexColor.substring(1, 7) : hexColor;
+            const r = parseInt(color.substring(0, 2), 16); // hexToR
+            const g = parseInt(color.substring(2, 4), 16); // hexToG
+            const b = parseInt(color.substring(4, 6), 16); // hexToB
+            // HSP (Highly Sensitive Poo) equation
+            const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
+            return hsp < 127.5; // Below 127.5 is considered dark
+        }
+
+
+        // --- Modal Handling ---
+        function openEventModal(eventIdToEdit = null) {
+            eventForm.reset();
+            deleteEventBtn.classList.add('hidden');
+            eventRepeatUntilGroup.classList.add('hidden');
+            eventIdInput.value = '';
+
+            if (calendars.length === 0) {
+                alert("Please create a calendar first.");
+                return;
+            }
+            populateCalendarDropdown(); // Ensure it's up-to-date
+
+            if (eventIdToEdit) {
+                eventModalTitle.textContent = 'Edit Event';
+                deleteEventBtn.classList.remove('hidden');
+                // Fetch full event details for editing (as EventOccurence might be partial)
+                apiRequest(`/events/${eventIdToEdit}`)
+                    .then(eventData => {
+                        eventIdInput.value = eventData.id;
+                        eventTitleInput.value = eventData.title;
+                        eventDescriptionInput.value = eventData.description || '';
+                        eventCalendarSelect.value = eventData.calendar_id;
+                        eventStartTimeInput.value = formatToDateTimeLocal(eventData.start_time);
+                        eventEndTimeInput.value = formatToDateTimeLocal(eventData.end_time);
+                        eventAllDayCheckbox.checked = eventData.is_all_day;
+                        eventRepeatFrequencySelect.value = eventData.repeat_frequency;
+                        if (eventData.repeat_frequency !== 'none') {
+                            eventRepeatUntilGroup.classList.remove('hidden');
+                            eventRepeatUntilInput.value = eventData.repeat_until ? formatToDateInput(eventData.repeat_until) : '';
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error fetching event for edit:", err);
+                        closeModal(eventModal);
+                    });
+            } else {
+                eventModalTitle.textContent = 'Create Event';
+                // Pre-fill start time sensible default if possible (e.g. selected day, next hour)
+                const defaultStart = new Date(currentDate);
+                defaultStart.setHours(defaultStart.getHours() + 1, 0, 0, 0); // Next hour
+                const defaultEnd = new Date(defaultStart);
+                defaultEnd.setHours(defaultStart.getHours() + 1); // 1 hour duration
+                eventStartTimeInput.value = formatToDateTimeLocal(defaultStart);
+                eventEndTimeInput.value = formatToDateTimeLocal(defaultEnd);
+
+                // Pre-select the first visible calendar, or first overall
+                if (selectedCalendarIds.size > 0) {
+                    eventCalendarSelect.value = selectedCalendarIds.values().next().value;
+                } else if (calendars.length > 0) {
+                    eventCalendarSelect.value = calendars[0].id;
+                }
+            }
+            eventModal.style.display = 'flex';
+        }
+
+        function openCalendarModal(calendarIdToEdit = null) {
+            calendarForm.reset();
+            calendarIdInput.value = '';
+            if (calendarIdToEdit) {
+                calendarModalTitle.textContent = 'Edit Calendar';
+                const cal = calendars.find(c => c.id === calendarIdToEdit);
+                if (cal) {
+                    calendarIdInput.value = cal.id;
+                    calendarNameInput.value = cal.name;
+                    calendarColorInput.value = cal.color || '#4A90E2';
+                }
+            } else {
+                calendarModalTitle.textContent = 'Create Calendar';
+                calendarColorInput.value = '#4A90E2'; // Default new calendar color
+            }
+            calendarModal.style.display = 'flex';
+        }
+
+        function closeModal(modalElement) {
+            modalElement.style.display = 'none';
+        }
+
+        // --- EVENT LISTENERS ---
+        todayBtn.addEventListener('click', () => {
+            currentDate = new Date();
+            miniCalDate = new Date(currentDate);
+            render();
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currentView === 'month') {
+                currentDate = addMonths(currentDate, -1);
+            } else {
+                currentDate = addDays(currentDate, -7);
+            }
+            miniCalDate = new Date(currentDate); // Sync mini calendar display
+            render();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentView === 'month') {
+                currentDate = addMonths(currentDate, 1);
+            } else {
+                currentDate = addDays(currentDate, 7);
+            }
+            miniCalDate = new Date(currentDate); // Sync mini calendar display
+            render();
+        });
+
+        viewSelector.addEventListener('change', (e) => {
+            currentView = e.target.value;
+            render();
+        });
+
+        newEventBtnSidebar.addEventListener('click', () => openEventModal());
+        
+        miniCalPrevBtn.addEventListener('click', () => {
+            miniCalDate = addMonths(miniCalDate, -1);
+            renderMiniCalendar();
+        });
+        miniCalNextBtn.addEventListener('click', () => {
+            miniCalDate = addMonths(miniCalDate, 1);
+            renderMiniCalendar();
+        });
+
+        addCalendarBtn.addEventListener('click', () => openCalendarModal());
+
+        // Modal Close Buttons
+        closeEventModalBtn.addEventListener('click', () => closeModal(eventModal));
+        closeCalendarModalBtn.addEventListener('click', () => closeModal(calendarModal));
+        window.addEventListener('click', (event) => { // Close on outside click
+            if (event.target === eventModal) closeModal(eventModal);
+            if (event.target === calendarModal) closeModal(calendarModal);
+        });
+
+        // Event Form Logic
+        eventRepeatFrequencySelect.addEventListener('change', (e) => {
+            if (e.target.value === 'none') {
+                eventRepeatUntilGroup.classList.add('hidden');
+                eventRepeatUntilInput.value = '';
+            } else {
+                eventRepeatUntilGroup.classList.remove('hidden');
+            }
+        });
+
+        eventForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = eventIdInput.value;
+            const calendarId = eventCalendarSelect.value;
+            const eventData = {
+                title: eventTitleInput.value,
+                description: eventDescriptionInput.value || null,
+                start_time: parseDateTimeLocal(eventStartTimeInput.value).toISOString(),
+                end_time: parseDateTimeLocal(eventEndTimeInput.value).toISOString(),
+                is_all_day: eventAllDayCheckbox.checked,
+                repeat_frequency: eventRepeatFrequencySelect.value,
+                repeat_until: eventRepeatFrequencySelect.value !== 'none' && eventRepeatUntilInput.value 
+                                ? new Date(eventRepeatUntilInput.value).toISOString().slice(0,10) 
+                                : null,
+            };
+            
+            // Basic validation
+            if (new Date(eventData.end_time) < new Date(eventData.start_time)) {
+                alert("End time cannot be before start time.");
+                return;
+            }
+
+            try {
+                if (id) { // Update
+                    await apiRequest(`/events/${id}`, 'PUT', eventData);
+                } else { // Create
+                    await apiRequest(`/calendars/${calendarId}/events`, 'POST', eventData);
+                }
+                closeModal(eventModal);
+                fetchAndRenderEvents(); // Refresh view
+            } catch (error) { /* Handled by apiRequest */ }
+        });
+
+        deleteEventBtn.addEventListener('click', async () => {
+            const id = eventIdInput.value;
+            if (id && confirm("Are you sure you want to delete this event?")) {
+                try {
+                    await apiRequest(`/events/${id}`, 'DELETE');
+                    closeModal(eventModal);
+                    fetchAndRenderEvents();
+                } catch (error) { /* Handled by apiRequest */ }
+            }
+        });
+
+        // Calendar Form Logic
+        calendarForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = calendarIdInput.value;
+            const calendarData = {
+                name: calendarNameInput.value,
+                color: calendarColorInput.value
+            };
+            try {
+                if (id) { // Update
+                    await apiRequest(`/calendars/${id}`, 'PUT', calendarData);
+                } else { // Create
+                    await apiRequest(`/calendars`, 'POST', calendarData);
+                }
+                closeModal(calendarModal);
+                loadCalendars(); // Refresh list and dropdown
+                fetchAndRenderEvents(); // In case color changed or new calendar added
+            } catch (error) { /* Handled by apiRequest */ }
+        });
+
+        // --- INITIALIZATION ---
+        async function initializeApp() {
+            viewSelector.value = currentView;
+            await loadCalendars(); // Load calendars first to populate dropdowns and selection
+            render(); // Initial render of current view and events
+        }
+
+        initializeApp();
+
+    </script>
 </body>
 </html>

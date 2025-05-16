@@ -2,43 +2,15 @@ import os
 import sqlite3
 import datetime
 from typing import List, Optional, Literal, Any
-from fastapi import FastAPI, HTTPException, Query, Path, File, UploadFile, Form # type: ignore
+from fastapi import FastAPI, HTTPException, Query, Path # type: ignore
 from fastapi.responses import FileResponse, JSONResponse # type: ignore
 from pydantic import BaseModel, validator # type: ignore
 from contextlib import asynccontextmanager
 import calendar as py_calendar # To avoid conflict with our Calendar model
-import base64
-import io
-from PIL import Image
-from groq import Groq
-import json
 
 #%% --- Configuration ---
 DATABASE_URL = "calendar.db"
 MAX_REPEATING_OCCURRENCES = 500 # Safety limit for events without repeat_until
-
-ai_model_name = "meta-llama/llama-4-scout-17b-16e-instruct"
-
-def get_groq_api_key(filepath: str = "groq.token") -> str | None:
-    """Reads the Groq API key from the specified file."""
-    try:
-        with open(filepath, "r") as f:
-            key = f.read().strip()
-            if key:
-                return key
-            else:
-                print(f"Warning: {filepath} is empty.")
-                return None
-    except FileNotFoundError:
-        print(f"Error: API key file not found at {filepath}")
-        return None
-    except Exception as e:
-        print(f"Error reading API key from {filepath}: {e}")
-        return None
-
-client = Groq(api_key=get_groq_api_key())
-
-
 
 # --- Database Setup ---
 def get_db_connection():
@@ -65,7 +37,6 @@ def create_tables():
         calendar_id INTEGER NOT NULL,
         title TEXT NOT NULL,
         description TEXT,
-        location TEXT, -- New field
         start_time TEXT NOT NULL, -- ISO format YYYY-MM-DDTHH:MM:SS
         end_time TEXT NOT NULL,   -- ISO format YYYY-MM-DDTHH:MM:SS
         is_all_day BOOLEAN DEFAULT 0,
@@ -95,7 +66,6 @@ RepeatFrequency = Literal["none", "daily", "weekly", "monthly", "yearly"]
 class EventBase(BaseModel):
     title: str
     description: Optional[str] = None
-    location: Optional[str] = None # New field
     start_time: datetime.datetime
     end_time: datetime.datetime
     is_all_day: bool = False
@@ -136,16 +106,10 @@ class EventOccurrence(BaseModel): # For expanded view
     calendar_id: int
     title: str
     description: Optional[str] = None
-    location: Optional[str] = None # New field
     start_time: datetime.datetime
     end_time: datetime.datetime
     is_all_day: bool
     color: Optional[str] = None # From the calendar
-
-# AI Suggestion Model
-class AISuggestPayload(BaseModel):
-    text: Optional[str] = None
-    image_b64: Optional[str] = None # Base64 encoded image
 
 #%% --- FastAPI Application Setup ---
 @asynccontextmanager
@@ -204,7 +168,6 @@ def _db_event_to_model(db_row: sqlite3.Row) -> Event:
         calendar_id=db_row['calendar_id'],
         title=db_row['title'],
         description=db_row['description'],
-        location=db_row['location'],
         start_time=start_time_dt,
         end_time=end_time_dt,
         is_all_day=bool(db_row['is_all_day']),
@@ -220,7 +183,6 @@ def _event_to_json(event: Event) -> dict:
         "calendar_id": event.calendar_id,
         "title": event.title,
         "description": event.description,
-        "location": event.location,
         "start_time": event.start_time.isoformat(),
         "end_time": event.end_time.isoformat(),
         "is_all_day": event.is_all_day,
@@ -280,12 +242,12 @@ def create_event_api(calendar_id: int, event: EventCreate):
     try:
         cursor.execute(
             """
-            INSERT INTO events (calendar_id, title, description, location, start_time, end_time, 
+            INSERT INTO events (calendar_id, title, description, start_time, end_time, 
                                 is_all_day, repeat_frequency, repeat_until)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                calendar_id, event_data["title"], event_data["description"], event_data["location"],
+                calendar_id, event_data["title"], event_data["description"],
                 event_data["start_time"].isoformat(), # Convert to ISO string for DB
                 event_data["end_time"].isoformat(),   # Convert to ISO string for DB
                 event_data["is_all_day"], event_data["repeat_frequency"],
@@ -389,7 +351,6 @@ def generate_occurrences(
                 calendar_id=base_event.calendar_id,
                 title=base_event.title,
                 description=base_event.description,
-                location=base_event.location,
                 start_time=current_start,
                 end_time=current_end,
                 is_all_day=base_event.is_all_day,
@@ -481,63 +442,6 @@ def get_expanded_events_api(
     # EventOccurrence already has datetime objects, FastAPI will handle serialization.
     return all_occurrences
 
-# --- ai suggestion endpoint ---
-@app.post("/events/ai-suggest")
-async def upload_data(payload: AISuggestPayload):
-    if not payload.text and not payload.image_b64:
-        raise HTTPException(status_code=400, detail="Either text or image_b64 must be provided.")
-
-    text: str = payload.text if payload.text else ""
-    image_b64: str = payload.image_b64 if payload.image_b64 else ""
-
-    with open("./ai_tool.md", "r") as f:
-        ai_tool_prompt = f.read()
-    
-    ai_tool_prompt = ai_tool_prompt.replace("[[REPLACE_CURRENT_DATE]]", datetime.datetime.now().strftime("%Y-%m-%d"))
-
-    message_content: list[dict[str, str] | dict[str, dict[str, str]]] = [{
-            "type": "text",
-            "text": ai_tool_prompt.replace("[[REPLACE_EVENT_INFO]]", text)
-        }]
-
-    if image_b64:
-        message_content.append(
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{image_b64}",
-                }
-            })
-    
-    completion = client.chat.completions.create(
-        model=ai_model_name,
-        messages=[
-            {
-                "role": "user",
-                "content": message_content
-            }
-        ],
-        temperature=1,
-        max_tokens=4096,
-        top_p=1,
-        stream=False,
-        stop=None
-    )
-
-    result_text: str = completion.choices[0].message.content
-
-    with open("ai_tool_response.txt", "w", encoding="utf-8") as f:
-        f.write(result_text)
-
-    if result_text.count("{") == 1 and result_text.count("}") == 1:
-        json_text = result_text[result_text.find("{"):result_text.rfind("}")+1]
-    elif result_text.count("[") == 1 and result_text.count("]") == 1:
-        json_text = result_text[result_text.find("["):result_text.rfind("]")+1]
-    else:
-        return JSONResponse(content={"error": "Invalid response format."}, status_code=420)
-    
-    return JSONResponse(content=json.loads(json_text))
-
 @app.put("/events/{event_id}", response_model=Event)
 def update_event_api(event_id: int, event_update: EventCreate):
     # Fetch existing event to get its calendar_id and to ensure it exists
@@ -561,12 +465,12 @@ def update_event_api(event_id: int, event_update: EventCreate):
     try:
         cursor.execute(
             """
-            UPDATE events SET title = ?, description = ?, location = ?, start_time = ?, end_time = ?,
+            UPDATE events SET title = ?, description = ?, start_time = ?, end_time = ?,
                                is_all_day = ?, repeat_frequency = ?, repeat_until = ?
             WHERE id = ?
             """,
             (
-                event_data["title"], event_data["description"], event_data["location"],
+                event_data["title"], event_data["description"],
                 event_data["start_time"].isoformat(), # Convert to ISO string for DB
                 event_data["end_time"].isoformat(),   # Convert to ISO string for DB
                 event_data["is_all_day"], event_data["repeat_frequency"],
