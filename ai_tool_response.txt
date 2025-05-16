@@ -1,0 +1,18 @@
+Here is a valid JSON object that can be used to call the calendar event creation API:
+
+```json
+[
+  {
+    "title": "Lange Nacht der Wissenschaften",
+    "description": "Neugier schläft nie! Die Universität Rostock und zahlreiche ...",
+    "location": "Campus Südstadt,...",
+    "start_time": "2025-05-15T00:00:00.000Z",
+    "end_time": "2025-05-16T00:00:00.000Z",
+    "is_all_day": true,
+    "repeat_frequency": null,
+    "repeat_until": null
+  }
+]
+```
+
+Note that I assumed the event is an all-day event since the start and end dates are provided without specific times, and I set the times to midnight accordingly. I also left the recurrence options as null since there was no information provided about recurring events. Let me know if you'd like me to adjust anything!
