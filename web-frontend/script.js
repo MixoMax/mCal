@@ -113,6 +113,13 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
 
 // --- DATE UTILITIES ---
 // (Using built-in Date.toISOString().slice(0,10) for YYYY-MM-DD and .slice(0,16) for datetime-local)
+function formatDateToYYYYMMDD(d) { // d is expected to be a Date object
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function getMonthName(monthIndex) {
     const monthNames = ["January", "February", "March", "April", "May", "June",
                         "July", "August", "September", "October", "November", "December"];
@@ -273,7 +280,7 @@ function renderMonthView() {
 
         const dayCell = document.createElement('div');
         dayCell.classList.add('day-cell');
-        dayCell.dataset.date = cellDate.toISOString().slice(0,10);
+        dayCell.dataset.date = formatDateToYYYYMMDD(cellDate); // Corrected
 
         if (cellDate.getMonth() !== month) {
             dayCell.classList.add('other-month');
@@ -333,13 +340,13 @@ function renderWeekView() {
         // All-day event column
         const allDayCol = document.createElement('div');
         allDayCol.classList.add('week-view-all-day-column');
-        allDayCol.dataset.date = day.toISOString().slice(0,10);
+        allDayCol.dataset.date = formatDateToYYYYMMDD(day); // Corrected
         weekViewAllDayEventsEl.appendChild(allDayCol);
 
         // Main day column
         const dayColumn = document.createElement('div');
         dayColumn.classList.add('week-view-day-column');
-        dayColumn.dataset.date = day.toISOString().slice(0,10);
+        dayColumn.dataset.date = formatDateToYYYYMMDD(day); // Corrected
         for (let hour = 0; hour < 24; hour++) { // Add hour lines for structure
             const hourLine = document.createElement('div');
             hourLine.classList.add('hour-line');
@@ -363,9 +370,14 @@ async function fetchAndRenderEvents() {
     }
     
     try {
+        // Use formatDateToYYYYMMDD for API query consistency if API expects local dates
+        // However, the original used toISOString().slice(0,10) which is UTC.
+        // Assuming API expects UTC date strings for start_date and end_date as per original.
+        // If API expects local dates, these should also be formatDateToYYYYMMDD.
+        // For now, keeping API call as it was, as the issue is display, not fetching.
         const startStr = viewStartDate.toISOString().slice(0,10);
         const endStr = viewEndDate.toISOString().slice(0,10);
-        // Fetch all events in range initially, then filter by selected calendars client-side
+
         const allFetchedEvents = await apiRequest(`/events/expanded?start_date=${startStr}&end_date=${endStr}`);
         
         events = allFetchedEvents.filter(event => 
@@ -379,29 +391,26 @@ async function fetchAndRenderEvents() {
         }
     } catch (error) {
         console.error("Failed to fetch or render events:", error);
-        // Clear existing events from view on error or show message
         if (currentView === 'month') monthGridEl.querySelectorAll('.month-events-container').forEach(c => c.innerHTML = '');
         else {
             weekViewAllDayEventsEl.querySelectorAll('.week-view-all-day-column').forEach(c => c.innerHTML = '');
-            weekViewDaysGridEl.querySelectorAll('.week-view-day-column').forEach(c => c.innerHTML = ''); // Clear timed events
+            weekViewDaysGridEl.querySelectorAll('.week-view-day-column').forEach(c => c.innerHTML = '');
         }
     }
 }
 
 function renderEventsInMonthView() {
-    // Clear previous events
     monthGridEl.querySelectorAll('.month-events-container').forEach(c => c.innerHTML = '');
 
     events.forEach(event => {
-        const eventStart = new Date(event.start_time);
+        const eventStart = new Date(event.start_time); // These are full datetime strings, parsed as local by default
         const eventEnd = new Date(event.end_time);
 
-        // Iterate through each day the event spans within the current view
         let currentIterDate = new Date(Math.max(eventStart, new Date(monthGridEl.firstChild.dataset.date + "T00:00:00")));
         const viewEndDate = new Date(monthGridEl.lastChild.dataset.date + "T23:59:59");
         
         while(currentIterDate <= eventEnd && currentIterDate <= viewEndDate) {
-            const dateStr = currentIterDate.toISOString().slice(0,10);
+            const dateStr = formatDateToYYYYMMDD(currentIterDate); // Corrected
             const dayCellContainer = monthGridEl.querySelector(`.day-cell[data-date="${dateStr}"] .month-events-container`);
             
             if (dayCellContainer) {
@@ -411,7 +420,6 @@ function renderEventsInMonthView() {
                 
                 let displayTitle = event.title;
                 if (!event.is_all_day) {
-                        // Only show time if event starts on this day, or it's the first day of a multi-day event in view
                     if (currentIterDate.toDateString() === eventStart.toDateString() || 
                         (currentIterDate.toDateString() === new Date(monthGridEl.firstChild.dataset.date + "T00:00:00").toDateString() && eventStart < currentIterDate)) {
                         displayTitle = `${String(eventStart.getHours()).padStart(2, '0')}:${String(eventStart.getMinutes()).padStart(2, '0')} ${event.title}`;
@@ -429,25 +437,23 @@ function renderEventsInMonthView() {
                 dayCellContainer.appendChild(eventEl);
             }
             currentIterDate = addDays(currentIterDate, 1);
-            currentIterDate.setHours(0,0,0,0); // Ensure we iterate by full days
+            currentIterDate.setHours(0,0,0,0); 
         }
     });
 }
 
 function renderEventsInWeekView() {
-    // Clear previous events
     weekViewAllDayEventsEl.querySelectorAll('.week-view-all-day-column').forEach(c => c.innerHTML = '');
     weekViewDaysGridEl.querySelectorAll('.week-view-day-column').forEach(dCol => {
-        // Remove only event elements, not hour lines
         Array.from(dCol.getElementsByClassName('week-event')).forEach(ev => ev.remove());
     });
 
-    const hourSlotHeight = 50; // pixels, must match CSS
+    const hourSlotHeight = 50; 
 
     events.forEach(event => {
-        const eventStart = new Date(event.start_time);
-        const eventEnd = new Date(event.end_time);
-        const dateStr = eventStart.toISOString().slice(0,10);
+        const eventStart = new Date(event.start_time); // Parsed as local
+        const eventEnd = new Date(event.end_time);   // Parsed as local
+        const dateStr = formatDateToYYYYMMDD(eventStart); // Corrected: Use local date for matching
 
         if (event.is_all_day) {
             const allDayCol = weekViewAllDayEventsEl.querySelector(`.week-view-all-day-column[data-date="${dateStr}"]`);
@@ -469,16 +475,14 @@ function renderEventsInWeekView() {
             if (dayColumn) {
                 const startHour = eventStart.getHours() + eventStart.getMinutes() / 60;
                 const endHour = eventEnd.getHours() + eventEnd.getMinutes() / 60;
-                // Handle events that span midnight, though API might split them.
-                // For simplicity, we assume endHour is > startHour for events on a single day.
-                const durationHours = Math.max(0.25, endHour - startHour); // Min 15 min height
+                const durationHours = Math.max(0.25, endHour - startHour); 
 
                 const eventEl = document.createElement('div');
                 eventEl.classList.add('week-event');
                 eventEl.style.top = `${startHour * hourSlotHeight}px`;
                 eventEl.style.height = `${durationHours * hourSlotHeight}px`;
                 eventEl.style.backgroundColor = event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim();
-                    if (isColorDark(event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim())) {
+                if (isColorDark(event.color || getComputedStyle(document.documentElement).getPropertyValue('--event-default-color').trim())) {
                     eventEl.style.color = 'var(--text-primary)';
                 } else {
                     eventEl.style.color = 'var(--bg-primary)';
@@ -500,8 +504,6 @@ async function loadCalendars() {
     try {
         calendars = await apiRequest('/calendars');
         if (calendars.length > 0 && selectedCalendarIds.size === 0) {
-            // By default, select the first calendar if none are selected
-            // Or, a calendar named "My calendar" or "Personal"
             let defaultCalendar = calendars.find(c => c.name.toLowerCase() === "my calendar" || c.name.toLowerCase() === "personal");
             if (!defaultCalendar) defaultCalendar = calendars[0];
             selectedCalendarIds.add(String(defaultCalendar.id));
@@ -534,11 +536,11 @@ function renderCalendarList() {
             } else {
                 selectedCalendarIds.delete(e.target.dataset.id);
             }
-            fetchAndRenderEvents(); // Re-filter events
+            fetchAndRenderEvents(); 
         });
 
         li.querySelector('.edit-cal-btn').addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent checkbox toggle if name is clicked
+            e.stopPropagation(); 
             openCalendarModal(cal.id);
         });
         li.querySelector('.delete-cal-btn').addEventListener('click', async (e) => {
@@ -546,8 +548,8 @@ function renderCalendarList() {
             if (confirm(`Are you sure you want to delete calendar "${cal.name}" and all its events?`)) {
                 try {
                     await apiRequest(`/calendars/${cal.id}`, 'DELETE');
-                    loadCalendars(); // Refresh list
-                    fetchAndRenderEvents(); // Refresh events
+                    loadCalendars(); 
+                    fetchAndRenderEvents(); 
                 } catch (error) { /* Handled by apiRequest */ }
             }
         });
@@ -566,16 +568,14 @@ function populateCalendarDropdown() {
 }
 
 function isColorDark(hexColor) {
-    if (!hexColor) return true; // Default to dark if no color
+    if (!hexColor) return true; 
     const color = (hexColor.charAt(0) === '#') ? hexColor.substring(1, 7) : hexColor;
-    const r = parseInt(color.substring(0, 2), 16); // hexToR
-    const g = parseInt(color.substring(2, 4), 16); // hexToG
-    const b = parseInt(color.substring(4, 6), 16); // hexToB
-    // HSP (Highly Sensitive Poo) equation
+    const r = parseInt(color.substring(0, 2), 16); 
+    const g = parseInt(color.substring(2, 4), 16); 
+    const b = parseInt(color.substring(4, 6), 16); 
     const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
-    return hsp < 127.5; // Below 127.5 is considered dark
+    return hsp < 127.5; 
 }
-
 
 // --- Modal Handling ---
 function openEventModal(eventIdToEdit = null) {
@@ -588,18 +588,17 @@ function openEventModal(eventIdToEdit = null) {
         alert("Please create a calendar first.");
         return;
     }
-    populateCalendarDropdown(); // Ensure it's up-to-date
+    populateCalendarDropdown(); 
 
     if (eventIdToEdit) {
         eventModalTitle.textContent = 'Edit Event';
         deleteEventBtn.classList.remove('hidden');
-        // Fetch full event details for editing (as EventOccurence might be partial)
         apiRequest(`/events/${eventIdToEdit}`)
             .then(eventData => {
                 eventIdInput.value = eventData.id;
                 eventTitleInput.value = eventData.title;
                 eventDescriptionInput.value = eventData.description || '';
-                eventLocationInput.value = eventData.location || ''; // New
+                eventLocationInput.value = eventData.location || ''; 
                 eventCalendarSelect.value = eventData.calendar_id;
                 eventStartTimeInput.value = formatToDateTimeLocal(eventData.start_time);
                 eventEndTimeInput.value = formatToDateTimeLocal(eventData.end_time);
@@ -616,15 +615,13 @@ function openEventModal(eventIdToEdit = null) {
             });
     } else {
         eventModalTitle.textContent = 'Create Event';
-        // Pre-fill start time sensible default if possible (e.g. selected day, next hour)
         const defaultStart = new Date(currentDate);
-        defaultStart.setHours(defaultStart.getHours() + 1, 0, 0, 0); // Next hour
+        defaultStart.setHours(defaultStart.getHours() + 1, 0, 0, 0); 
         const defaultEnd = new Date(defaultStart);
-        defaultEnd.setHours(defaultStart.getHours() + 1); // 1 hour duration
+        defaultEnd.setHours(defaultStart.getHours() + 1); 
         eventStartTimeInput.value = formatToDateTimeLocal(defaultStart);
         eventEndTimeInput.value = formatToDateTimeLocal(defaultEnd);
 
-        // Pre-select the first visible calendar, or first overall
         if (selectedCalendarIds.size > 0) {
             eventCalendarSelect.value = selectedCalendarIds.values().next().value;
         } else if (calendars.length > 0) {
@@ -647,18 +644,18 @@ function openCalendarModal(calendarIdToEdit = null) {
         }
     } else {
         calendarModalTitle.textContent = 'Create Calendar';
-        calendarColorInput.value = '#4A90E2'; // Default new calendar color
+        calendarColorInput.value = '#4A90E2'; 
     }
     calendarModal.style.display = 'flex';
 }
 
 function closeModal(modalElement) {
     modalElement.style.display = 'none';
-    if (modalElement === aiInputModal) { // Reset AI form on close
+    if (modalElement === aiInputModal) { 
         aiInputForm.reset();
         aiImagePreview.style.display = 'none';
         aiImagePreview.src = '#';
-        aiImageInput.value = ''; // Clear file input
+        aiImageInput.value = ''; 
     }
     if (modalElement === aiProposalModal) {
         currentAiProposals = [];
@@ -681,7 +678,6 @@ function showCurrentProposal() {
         const proposal = currentAiProposals[currentAiProposalIndex];
         aiProposalDetailsEl.textContent = JSON.stringify(proposal, null, 2);
         
-        // Update modal title to show progress if multiple proposals
         const modalTitle = document.getElementById('aiProposalTitle');
         if (currentAiProposals.length > 1) {
             modalTitle.textContent = `AI Event Proposal (${currentAiProposalIndex + 1}/${currentAiProposals.length})`;
@@ -689,7 +685,6 @@ function showCurrentProposal() {
             modalTitle.textContent = 'AI Event Proposal';
         }
 
-        // Update description text based on number of proposals
         const descText = aiProposalModal.querySelector('p');
         if (currentAiProposals.length > 1) {
             descText.textContent = `The AI suggests the following events. You can review them one at a time. (${currentAiProposalIndex + 1} of ${currentAiProposals.length})`;
@@ -700,11 +695,9 @@ function showCurrentProposal() {
 }
 
 function openAiProposalModal(proposals) {
-    // Convert single proposal to array for consistent handling
     currentAiProposals = Array.isArray(proposals) ? proposals : [proposals];
     currentAiProposalIndex = 0;
     
-    // If there are multiple proposals, update the header text
     const modalTitle = aiProposalModal.querySelector('.modal-header h2');
     if (currentAiProposals.length > 1) {
         modalTitle.textContent = `AI Event Proposal (1/${currentAiProposals.length})`;
@@ -724,19 +717,16 @@ function handleAiImageFile(file) {
             aiImagePreview.style.display = 'block';
         }
         reader.readAsDataURL(file);
-        // Set the file to the input for form submission
-        // Create a new FileList and assign it
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
         aiImageInput.files = dataTransfer.files;
     } else {
         alert("Please select a valid image file (PNG, JPG, GIF).");
-        aiImageInput.value = ''; // Clear invalid file
+        aiImageInput.value = ''; 
         aiImagePreview.style.display = 'none';
         aiImagePreview.src = '#';
     }
 }
-
 
 // --- EVENT LISTENERS ---
 newEventAIBtn.addEventListener('click', openAiInputModal);
@@ -769,13 +759,13 @@ aiImageDropZone.addEventListener('drop', (e) => {
     }
 });
 document.addEventListener('paste', (e) => {
-    if (aiInputModal.style.display === 'flex') { // Only if AI modal is open
+    if (aiInputModal.style.display === 'flex') { 
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
         for (const item of items) {
             if (item.type.indexOf('image') === 0) {
                 const blob = item.getAsFile();
                 handleAiImageFile(blob);
-                e.preventDefault(); // Prevent pasting image elsewhere
+                e.preventDefault(); 
                 break;
             }
         }
@@ -804,7 +794,6 @@ aiInputForm.addEventListener('submit', async (e) => {
         
         try {
             const dataUrl = await imagePromise;
-            // Extract base64 part after the comma
             payload.image_b64 = dataUrl.split(',')[1];
         } catch (error) {
             console.error('Error reading image file:', error);
@@ -813,9 +802,7 @@ aiInputForm.addEventListener('submit', async (e) => {
         }
     }
 
-
     try {
-        // Show some loading indicator if desired
         aiInputForm.querySelector('button[type="submit"]').textContent = 'Processing...';
         aiInputForm.querySelector('button[type="submit"]').disabled = true;
 
@@ -824,15 +811,13 @@ aiInputForm.addEventListener('submit', async (e) => {
         closeModal(aiInputModal);
         openAiProposalModal(proposal);
     } catch (error) {
-        // Error already alerted by apiRequest
         console.error("AI suggestion failed:", error);
     } finally {
-            aiInputForm.querySelector('button[type="submit"]').textContent = 'Get AI Suggestion';
-            aiInputForm.querySelector('button[type="submit"]').disabled = false;
+        aiInputForm.querySelector('button[type="submit"]').textContent = 'Get AI Suggestion';
+        aiInputForm.querySelector('button[type="submit"]').disabled = false;
     }
 });
 
-// Function to move to next proposal or close if done
 function moveToNextProposal() {
     currentAiProposalIndex++;
     if (currentAiProposalIndex >= currentAiProposals.length) {
@@ -848,7 +833,6 @@ aiProposalAcceptBtn.addEventListener('click', async () => {
 
     const proposal = currentAiProposals[currentAiProposalIndex];
     
-    // Find appropriate calendar ID
     let calendarId;
     if (proposal.calendar_name) {
         const foundCalendar = calendars.find(c => c.name.toLowerCase() === proposal.calendar_name.toLowerCase());
@@ -863,7 +847,6 @@ aiProposalAcceptBtn.addEventListener('click', async () => {
         return;
     }
 
-    // Create single event for current proposal
     const eventData = {
         title: proposal.title,
         description: proposal.description || null,
@@ -886,9 +869,8 @@ aiProposalAcceptBtn.addEventListener('click', async () => {
 });
 
 aiProposalDenyBtn.addEventListener('click', () => {
-    moveToNextProposal(); // Skip current proposal
+    moveToNextProposal(); 
 });
-
 
 todayBtn.addEventListener('click', () => {
     currentDate = new Date();
@@ -902,7 +884,7 @@ prevBtn.addEventListener('click', () => {
     } else {
         currentDate = addDays(currentDate, -7);
     }
-    miniCalDate = new Date(currentDate); // Sync mini calendar display
+    miniCalDate = new Date(currentDate); 
     render();
 });
 
@@ -912,7 +894,7 @@ nextBtn.addEventListener('click', () => {
     } else {
         currentDate = addDays(currentDate, 7);
     }
-    miniCalDate = new Date(currentDate); // Sync mini calendar display
+    miniCalDate = new Date(currentDate); 
     render();
 });
 
@@ -934,15 +916,13 @@ miniCalNextBtn.addEventListener('click', () => {
 
 addCalendarBtn.addEventListener('click', () => openCalendarModal());
 
-// Modal Close Buttons
 closeEventModalBtn.addEventListener('click', () => closeModal(eventModal));
 closeCalendarModalBtn.addEventListener('click', () => closeModal(calendarModal));
-window.addEventListener('click', (event) => { // Close on outside click
+window.addEventListener('click', (event) => { 
     if (event.target === eventModal) closeModal(eventModal);
     if (event.target === calendarModal) closeModal(calendarModal);
 });
 
-// Event Form Logic
 eventRepeatFrequencySelect.addEventListener('change', (e) => {
     if (e.target.value === 'none') {
         eventRepeatUntilGroup.classList.add('hidden');
@@ -959,7 +939,7 @@ eventForm.addEventListener('submit', async (e) => {
     const eventData = {
         title: eventTitleInput.value,
         description: eventDescriptionInput.value || null,
-        location: eventLocationInput.value || null, // New
+        location: eventLocationInput.value || null, 
         start_time: parseDateTimeLocal(eventStartTimeInput.value).toISOString(),
         end_time: parseDateTimeLocal(eventEndTimeInput.value).toISOString(),
         is_all_day: eventAllDayCheckbox.checked,
@@ -969,20 +949,19 @@ eventForm.addEventListener('submit', async (e) => {
                         : null,
     };
     
-    // Basic validation
     if (new Date(eventData.end_time) < new Date(eventData.start_time)) {
         alert("End time cannot be before start time.");
         return;
     }
 
     try {
-        if (id) { // Update
+        if (id) { 
             await apiRequest(`/events/${id}`, 'PUT', eventData);
-        } else { // Create
+        } else { 
             await apiRequest(`/calendars/${calendarId}/events`, 'POST', eventData);
         }
         closeModal(eventModal);
-        fetchAndRenderEvents(); // Refresh view
+        fetchAndRenderEvents(); 
     } catch (error) { /* Handled by apiRequest */ }
 });
 
@@ -997,7 +976,6 @@ deleteEventBtn.addEventListener('click', async () => {
     }
 });
 
-// Calendar Form Logic
 calendarForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = calendarIdInput.value;
@@ -1006,22 +984,22 @@ calendarForm.addEventListener('submit', async (e) => {
         color: calendarColorInput.value
     };
     try {
-        if (id) { // Update
+        if (id) { 
             await apiRequest(`/calendars/${id}`, 'PUT', calendarData);
-        } else { // Create
+        } else { 
             await apiRequest(`/calendars`, 'POST', calendarData);
         }
         closeModal(calendarModal);
-        loadCalendars(); // Refresh list and dropdown
-        fetchAndRenderEvents(); // In case color changed or new calendar added
+        loadCalendars(); 
+        fetchAndRenderEvents(); 
     } catch (error) { /* Handled by apiRequest */ }
 });
 
 // --- INITIALIZATION ---
 async function initializeApp() {
     viewSelector.value = currentView;
-    await loadCalendars(); // Load calendars first to populate dropdowns and selection
-    render(); // Initial render of current view and events
+    await loadCalendars(); 
+    render(); 
 }
 
 initializeApp();

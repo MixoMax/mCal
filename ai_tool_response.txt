@@ -1,96 +1,24 @@
-To create a valid JSON object for the calendar event creation API based on the provided event information, we first need to extract and convert the relevant details into the required format.
+To create a valid JSON object for the calendar event creation API based on the provided event information, we first need to extract the relevant details:
 
-### Event Details:
-- **Date**: 26. Mai 2025 (which translates to May 26, 2025)
-- **Title**: Grill-Nachmittag
-- **Description**: Let's grill!
-- **Start Time**: 16:00
-- **End Time**: 20:00
-- **Location**: Wiese neben KZH
-- **All Day**: No (since it has specific times)
-- **Recurrence**: Not mentioned, so we assume none.
+- **Title**: Wandern
+- **Description**: Go touch some grass! Endlich ist der Winter wirklich vorbei. Um das zu genießen, müssen wir das tun, was uns Informatiker*innen oft schwerfällt: rausgehen. Sei es um die Schritte für den Tag reinzubekommen, einfach nur was zu unternehmen, oder um bei der nächsten Konfrontation im Chat eines Videospiels mit recht behaupten zu können, “Ja, ich habe tatsächlich Gras berührt!”. Deshalb bieten wir euch über die Fachschaft Informatik eine Gelegenheit, gemeinschaftlich eine kleine Wanderung zu unternehmen. Treffpunkt: Warnemünde Station, Beginn: 13:00, Voraussichtliche Dauer: ungefähr 3 Stunden. Vergesst nicht an Wasser, Sonnencreme, Snacks und angenehme Schuhe mitzubringen!
+- **Location**: Warnemünde Bahnhof
+- **Start Time**: 2025-05-16T13:00:00.000Z
+- **End Time**: We need to calculate this based on the start time and duration. Given the start time is 13:00 and the duration is approximately 3 hours, the end time would be 16:00.
+  - **End Time**: 2025-05-16T16:00:00.000Z
+- **Is All Day**: No, because it has specific start and end times.
+- **Repeat Frequency**: None mentioned.
+- **Repeat Until**: None mentioned.
 
-Given the current date is 2025-05-16, the event date (May 26, 2025) is in the future and can be directly used.
-
-### Converting to JSON Format:
-
-The date needs to be converted to `YYYY-MM-DD`, and times to `HH:MM:SS`. Milliseconds are not provided, so we'll use `.000Z` for UTC time zone indication.
-
-- **Date**: 2025-05-26
-- **Start Time**: 2025-05-26T16:00:00.000Z
-- **End Time**: 2025-05-26T20:00:00.000Z
-
-### JSON Object:
+Given there's only one event described, we return a single JSON object:
 
 ```json
 {
-  "title": "Grill-Nachmittag",
-  "description": "Let's grill!",
-  "location": "Wiese neben KZH",
-  "start_time": "2025-05-26T16:00:00.000Z",
-  "end_time": "2025-05-26T20:00:00.000Z",
-  "is_all_day": false,
-  "repeat_frequency": null,
-  "repeat_until": null
-}
-```
-
-However, to strictly follow the given schema and assuming `null` is not allowed for "repeat_frequency" and "repeat_until" if they are not used:
-
-```json
-{
-  "title": "Grill-Nachmittag",
-  "description": "Let's grill!",
-  "location": "Wiese neben KZH",
-  "start_time": "2025-05-26T16:00:00.000Z",
-  "end_time": "2025-05-26T20:00:00.000Z",
-  "is_all_day": false,
-  "repeat_frequency": "",
-  "repeat_until": ""
-}
-```
-
-Or, more accurately based on provided options and assuming no recurrence:
-
-```json
-{
-  "title": "Grill-Nachmittag",
-  "description": "Let's grill!",
-  "location": "Wiese neben KZH",
-  "start_time": "2025-05-26T16:00:00.000Z",
-  "end_time": "2025-05-26T20:00:00.000Z",
-  "is_all_day": false,
-  "repeat_frequency": "",
-  "repeat_until": null
-}
-```
-
-But to perfectly match the schema provided:
-
-```json
-{
-  "title": "Grill-Nachmittag",
-  "description": "Let's grill!",
-  "location": "Wiese neben KZH",
-  "start_time": "2025-05-26T16:00:00.000Z",
-  "end_time": "2025-05-26T20:00:00.000Z",
-  "is_all_day": false,
-  "repeat_frequency": "none",
-  "repeat_until": null
-}
-```
-
-Given "none" isn't listed but it seems to fit best for no recurrence:
-
-The final answer is:
-
-```json
-{
-  "title": "Grill-Nachmittag",
-  "description": "Let's grill!",
-  "location": "Wiese neben KZH",
-  "start_time": "2025-05-26T16:00:00.000Z",
-  "end_time": "2025-05-26T20:00:00.000Z",
+  "title": "Wandern",
+  "description": "Go touch some grass! Endlich ist der Winter wirklich vorbei. Um das zu genießen, müssen wir das tun, was uns Informatiker*innen oft schwerfällt: rausgehen. Sei es um die Schritte für den Tag reinzubekommen, einfach nur was zu unternehmen, oder um bei der nächsten Konfrontation im Chat eines Videospiels mit recht behaupten zu können, “Ja, ich habe tatsächlich Gras berührt!”. Deshalb bieten wir euch über die Fachschaft Informatik eine Gelegenheit, gemeinschaftlich eine kleine Wanderung zu unternehmen. Treffpunkt: Warnemünde Station, Beginn: 13:00, Voraussichtliche Dauer: ungefähr 3 Stunden. Vergesst nicht an Wasser, Sonnencreme, Snacks und angenehme Schuhe mitzubringen!",
+  "location": "Warnemünde Bahnhof",
+  "start_time": "2025-05-16T13:00:00.000Z",
+  "end_time": "2025-05-16T16:00:00.000Z",
   "is_all_day": false,
   "repeat_frequency": null,
   "repeat_until": null

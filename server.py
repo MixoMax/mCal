@@ -539,10 +539,8 @@ async def upload_data(payload: AISuggestPayload):
     with open("ai_tool_response.txt", "w", encoding="utf-8") as f:
         f.write(result_text)
 
-    if result_text.count("{") == 1 and result_text.count("}") == 1:
-        json_text = result_text[result_text.find("{"):result_text.rfind("}")+1]
-    elif result_text.count("[") == 1 and result_text.count("]") == 1:
-        json_text = result_text[result_text.find("["):result_text.rfind("]")+1]
+    if result_text.count("```json") == 1 and result_text.count("```") == 2:
+        json_text = result_text.split("```json")[1].split("```")[0].strip()
     else:
         return JSONResponse(content={"error": "Invalid response format."}, status_code=420)
     
@@ -626,6 +624,8 @@ def get_event_api(event_id: int = Path(..., gt=0)):
 def catch_all(path: str):
     if path == "":
         path = "index.html"
+    if path == "favicon.ico":
+        path = "favicon.png"
     
     # Ensure path is relative to web-frontend and secure
     safe_path = os.path.normpath(os.path.join("web-frontend", path))

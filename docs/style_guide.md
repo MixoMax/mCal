@@ -1,6 +1,6 @@
-# Frontend Style Guide - Proton Calendar Clone
+# Frontend Style Guide - mCal
 
-This document outlines the stylistic choices and conventions used in the Proton Calendar Clone frontend. It serves as a reference for implementing new UI elements and maintaining consistency.
+This document outlines the stylistic choices and conventions used in the mCal frontend. It serves as a reference for implementing new UI elements and maintaining consistency.
 
 ## 1. Color Palette
 

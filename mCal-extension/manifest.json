@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "mCal Upcoming Events",
+  "name": "mCal AI Events",
   "version": "1.0",
-  "description": "Displays upcoming events from mCal API.",
+  "description": "Add AI-generated events to your calendar based on your clipboard content.",
   "host_permissions": [
     "http://localhost:8000/"
   ],

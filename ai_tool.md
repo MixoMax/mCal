@@ -10,12 +10,14 @@ POST BODY: {
     "start_time": Time,
     "end_time": Time,
     "is_all_day": bool,
-    "repeat_frequency": "daily" | "weekly" | "monthly" | "yearly",
-    "repeat_until": Time
+    "repeat_frequency": "daily" | "weekly" | "monthly" | "yearly" | None,
+    "repeat_until": Time | None
 }
 
 Use the information from either the event info below or an attached image. If there is no image AND no information, return an empty JSON object.
 If there is information for more then just one event, return an array of JSON objects.
+Make absolutely sure to start your JSON block with "```json" and end it with "```"!
+Only have one (1) JSON block in your response and dont use the json delimiters ("```json" and "```") anywhere else!
 
 The current date is [[REPLACE_CURRENT_DATE]].
 
