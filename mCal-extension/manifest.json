@@ -1,12 +1,15 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "mCal Upcoming Events",
   "version": "1.0",
   "description": "Displays upcoming events from mCal API.",
-  "permissions": [
+  "host_permissions": [
     "http://localhost:8000/"
   ],
-  "browser_action": {
+  "permissions": [
+    "clipboardRead"
+  ],
+  "action": {
     "default_popup": "popup.html",
     "default_icon": {
       "48": "icons/icon-48.png"

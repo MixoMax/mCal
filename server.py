@@ -3,6 +3,7 @@ import sqlite3
 import datetime
 from typing import List, Optional, Literal, Any
 from fastapi import FastAPI, HTTPException, Query, Path, File, UploadFile, Form # type: ignore
+from fastapi.middleware.cors import CORSMiddleware # type: ignore
 from fastapi.responses import FileResponse, JSONResponse # type: ignore
 from pydantic import BaseModel, validator # type: ignore
 from contextlib import asynccontextmanager
@@ -156,6 +157,15 @@ async def lifespan(app: FastAPI):
     # Shutdown: (Optional: close db connections if you had a global pool)
 
 app = FastAPI(lifespan=lifespan, title="Simple Calendar API")
+
+# CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"], # Allows all methods
+    allow_headers=["*"], # Allows all headers
+)
 
 #%% --- Helper Functions ---
 def _adjust_for_all_day(event_data: dict):
